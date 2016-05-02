@@ -192,6 +192,7 @@ Status BufferDevice::expandBuffer(xdr_size_t size)
 		return XDR_IO_ERROR;
 
 	xdr_size_t expandSize = ( size == 0 ) ? m_expandSize : size ;
+	xdr_size_t currentPosition( this->getPosition() );
 
 	char *pTmpBuffer = m_pBuffer;
 	m_pBuffer = new char [ m_bufferSize + expandSize ];
@@ -205,6 +206,7 @@ Status BufferDevice::expandBuffer(xdr_size_t size)
 	// delete the old buffer
 	delete [] pTmpBuffer;
 	m_bufferSize = m_bufferSize + expandSize;
+	this->seek( currentPosition );
 
 	return XDR_SUCCESS;
 }
@@ -456,7 +458,7 @@ Status BufferDevice::writeData(const void *pAddress, xdr_size_t dataSize)
 	}
 
 	// write size and move cursor
-	( (xdr_size_t *) m_pBufferPosition )[0] = dataSize;
+	memcpy( m_pBufferPosition , (void *) &dataSize , sizeof(xdr_size_t) );
 	m_pBufferPosition += sizeof(xdr_size_t);
 
 	// write data if any and move cursor
@@ -478,18 +480,18 @@ Status BufferDevice::writeArray(const void *pAddress, xdr_size_t arraySize, xdr_
 		return XDR_IO_ERROR;
 
 	// reached end of buffer ?
-	if( this->getBufferSize() - this->getPosition() < arraySize*elementSize + sizeof(xdr_size_t) )
+	if( this->getBufferSize() - this->getPosition() < arraySize*elementSize + 2*sizeof(xdr_size_t) )
 	{
-		xdr_size_t reallocationSize = std::max<unsigned long>( arraySize*elementSize + sizeof(xdr_size_t), this->getExpandSize() );
+		xdr_size_t reallocationSize = std::max<unsigned long>( arraySize*elementSize + 2*sizeof(xdr_size_t), this->getExpandSize() );
 		XDR_STREAM( this->expandBuffer(reallocationSize) )
 	}
 
 	// write array size and move cursor
-	( (xdr_size_t *) m_pBufferPosition )[0] = arraySize;
+	memcpy( m_pBufferPosition , (void *) &arraySize , sizeof(xdr_size_t) );
 	m_pBufferPosition += sizeof(xdr_size_t);
 
 	// write element size and move cursor
-	( (xdr_size_t *) m_pBufferPosition )[0] = elementSize;
+	memcpy( m_pBufferPosition , (void *) &elementSize , sizeof(xdr_size_t) );
 	m_pBufferPosition += sizeof(xdr_size_t);
 
 
